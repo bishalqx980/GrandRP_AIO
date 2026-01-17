@@ -27,36 +27,49 @@ class App(ctk.CTk):
         super().__init__()
         self.title("AntiAFK - RageMP by @bishalqx980")
         self.geometry("500x400")
-        self.minsize(400, 300)
+        self.minsize(500, 400)
 
-        # Main frame
+        # ---------------- PROCESS STATUS (TOP LEFT) ----------------
+        self.process_label = ctk.CTkLabel(
+            self,
+            text="Game not detected!",
+            font=ctk.CTkFont(size=12)
+        )
+        self.process_label.place(x=20, y=10, anchor="nw")
+        self.update_process_label()
+
+        # ---------------- MAIN FRAME ----------------
         self.frame = ctk.CTkFrame(self, corner_radius=10, fg_color="transparent")
-        self.frame.pack(fill="both", expand=True, padx=20, pady=20)
+        self.frame.pack(fill="both", expand=True, padx=20, pady=(40, 20))
 
-        # Toggle buttons frame
+        # ---------------- TOGGLES ----------------
         self.toggle_frame = ctk.CTkFrame(self.frame, corner_radius=10)
         self.toggle_frame.pack(fill="x", pady=(0, 10))
 
-        # Normal AFK toggle
         self.normal_var = ctk.BooleanVar()
         self.normal_toggle = ctk.CTkSwitch(
-            self.toggle_frame, text="Normal AFK", variable=self.normal_var, command=self.toggle_changed
+            self.toggle_frame,
+            text="Normal AFK",
+            variable=self.normal_var,
+            command=self.toggle_changed
         )
         self.normal_toggle.pack(side="left", padx=10, pady=10)
 
-        # GYM AFK toggle
         self.gym_var = ctk.BooleanVar()
         self.gym_toggle = ctk.CTkSwitch(
-            self.toggle_frame, text="GYM AFK", variable=self.gym_var, command=self.toggle_changed
+            self.toggle_frame,
+            text="GYM AFK",
+            variable=self.gym_var,
+            command=self.toggle_changed
         )
         self.gym_toggle.pack(side="left", padx=10, pady=10)
 
-        # Log area
+        # ---------------- LOG AREA ----------------
         self.log_area = ctk.CTkTextbox(self.frame, height=200, corner_radius=10)
         self.log_area.pack(fill="both", expand=True, pady=(0, 10))
-        self.log_area.configure(state="disabled")  # Read-only
+        self.log_area.configure(state="disabled")
 
-        # Footer (Developer credit)
+        # ---------------- FOOTER ----------------
         self.footer = ctk.CTkLabel(
             self.frame,
             text="Developed by @bishalqx980",
@@ -66,13 +79,27 @@ class App(ctk.CTk):
         self.footer.pack(pady=(0, 0))
 
         self.log("App started!")
-
-        # Thread control
         self.running = False
 
-    # ---------------------- TOGGLE ----------------------
+    # ---------------- PROCESS CHECK ----------------
+    def update_process_label(self):
+        process_name = is_process_running(TARGET_PROCESS)
+
+        if process_name:
+            self.process_label.configure(
+                text=f"Game Running: {process_name}",
+                text_color="#22c55e"
+            )
+        else:
+            self.process_label.configure(
+                text=f"Game Running: {process_name}",
+                text_color="#ef4444"
+            )
+
+        self.after(1000, self.update_process_label)
+
+    # ---------------- TOGGLE ----------------
     def toggle_changed(self):
-        # Only allow one toggle at a time
         if self.normal_var.get() and self.gym_var.get():
             self.gym_var.set(False)
 
@@ -80,15 +107,14 @@ class App(ctk.CTk):
         status_gym = "ON" if self.gym_var.get() else "OFF"
         self.log(f"Normal AFK: {status_normal} | GYM AFK: {status_gym}")
 
-        # Start/stop the AFK script
         if self.normal_var.get():
-            self.start_script(script_type="normal")
+            self.start_script("normal")
         elif self.gym_var.get():
-            self.start_script(script_type="gym")
+            self.start_script("gym")
         else:
             self.stop_script()
 
-    # ---------------------- LOG FUNCTION ----------------------
+    # ---------------- LOG ----------------
     def log(self, message):
         timestamp = datetime.now().strftime("%H:%M:%S")
         self.log_area.configure(state="normal")
@@ -96,11 +122,12 @@ class App(ctk.CTk):
         self.log_area.see("end")
         self.log_area.configure(state="disabled")
 
-    # ---------------------- SCRIPT CONTROL ----------------------
+    # ---------------- SCRIPT CONTROL ----------------
     def start_script(self, script_type):
         if self.running:
             self.log("Script already running...")
             return
+
         self.running = True
         thread = threading.Thread(target=self.afk_loop, args=(script_type,), daemon=True)
         thread.start()
@@ -109,7 +136,7 @@ class App(ctk.CTk):
         self.running = False
         self.log("Script stopped.")
 
-    # ---------------------- AFK LOOP ----------------------
+    # ---------------- AFK LOOP ----------------
     def afk_loop(self, script_type):
         if script_type == "normal":
             WAIT_TIME = 9 * 60
@@ -147,6 +174,7 @@ class App(ctk.CTk):
                 if not is_process_running(TARGET_PROCESS):
                     sleep(1)
                     continue
+
                 pdi.press(KEY)
                 self.log(f"Pressed {KEY.upper()}. Waiting {WAIT_TIME} seconds...")
                 sleep(WAIT_TIME)
