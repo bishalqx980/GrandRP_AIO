@@ -1,1 +1,1 @@
-# antiafk
+# grandrp-antiafk
