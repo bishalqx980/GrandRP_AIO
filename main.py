@@ -96,7 +96,7 @@ class App(ctk.CTk):
                 text_color="#ef4444"
             )
 
-        self.after(1000, self.update_process_label)
+        self.after(3000, self.update_process_label)
 
     # ---------------- TOGGLE ----------------
     def toggle_changed(self):
