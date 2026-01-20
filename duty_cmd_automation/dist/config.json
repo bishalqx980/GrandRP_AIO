@@ -1,0 +1,17 @@
+{
+    "badge_number": "956",
+    "start_delay": 3,
+    "screenshot_keys": [
+        "alt",
+        "`"
+    ],
+    "on_duty_commands": [
+        "/me takes out bodycam, turns it on, and checks for the red light",
+        "/do The bodycam is recording, and is ballistic and waterproof",
+        "{badge} to Dispatch Show 10-41 at {time}"
+    ],
+    "off_duty_commands": [
+        "/do saves the bodycam content and uploads the bodycam to SAHP servers and stops recording",
+        "{badge} to Dispatch Show 10-42 at {time}"
+    ]
+}
