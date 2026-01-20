@@ -36,7 +36,6 @@ with open(CONFIG_PATH, "r", encoding="utf-8") as f:
 START_DELAY = CONFIG.get("start_delay", 3)
 SCREENSHOT_KEYS = CONFIG.get("screenshot_keys", ["alt", "`"])
 
-
 # ---------------------- CORE LOGIC ----------------------
 
 def execute_commands(cmd_list: list, log_cb):
@@ -63,7 +62,6 @@ def take_screenshot():
         pdi.press(SCREENSHOT_KEYS[1])
         pdi.keyUp(SCREENSHOT_KEYS[0])
 
-
 # ---------------------- UI APP ----------------------
 
 ctk.set_appearance_mode("System")
@@ -76,6 +74,9 @@ class DutyApp(ctk.CTk):
         self.title("FIB/LSPD/SAHP Duty Command Helper by @bishalqx980")
         self.geometry("520x420")
         self.resizable(False, False)
+
+        # window close handler
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
 
         ctk.CTkLabel(self, text="Badge Number").pack(pady=(10, 0))
         self.badge_entry = ctk.CTkEntry(self, width=200)
@@ -96,14 +97,14 @@ class DutyApp(ctk.CTk):
         self.log_box = ctk.CTkTextbox(self, width=480, height=220)
         self.log_box.pack(pady=5)
         self.log_box.configure(state="disabled")
-        
+
         self.footer = ctk.CTkLabel(
             self,
             text="Developed by @bishalqx980",
             font=ctk.CTkFont(size=12),
             text_color=("gray40", "gray60")
         )
-        self.footer.pack(pady=(0, 0))
+        self.footer.pack()
 
     # ---------------------- HELPERS ----------------------
 
@@ -119,7 +120,6 @@ class DutyApp(ctk.CTk):
             self.log("Invalid badge number")
             return None
 
-        # persist badge to json
         CONFIG["badge_number"] = badge
         try:
             with open(CONFIG_PATH, "w", encoding="utf-8") as f:
@@ -130,15 +130,18 @@ class DutyApp(ctk.CTk):
         return badge
 
     def run_duty(self, mode: str):
+        # disable buttons while running
+        self.on_btn.configure(state="disabled")
+        self.off_btn.configure(state="disabled")
+
         badge = self.get_badge()
         if not badge:
+            self.on_btn.configure(state="normal")
+            self.off_btn.configure(state="normal")
             return
 
         now = datetime.now(timezone.utc).strftime("%H:%M")
-        commands = []
-
-        for cmd in CONFIG[mode]:
-            commands.append(cmd.format(badge=badge, time=now))
+        commands = [cmd.format(badge=badge, time=now) for cmd in CONFIG[mode]]
 
         self.log(f"Starting in {START_DELAY} sec")
         sleep(START_DELAY)
@@ -147,14 +150,30 @@ class DutyApp(ctk.CTk):
             take_screenshot()
             self.log(f"{mode.replace('_', ' ').title()} done")
 
+        # re-enable buttons
+        self.on_btn.configure(state="normal")
+        self.off_btn.configure(state="normal")
+
     # ---------------------- BUTTON CALLBACKS ----------------------
 
     def on_duty(self):
-        threading.Thread(target=self.run_duty, args=("on_duty_commands",), daemon=True).start()
+        threading.Thread(
+            target=self.run_duty,
+            args=("on_duty_commands",),
+            daemon=True
+        ).start()
 
     def off_duty(self):
-        threading.Thread(target=self.run_duty, args=("off_duty_commands",), daemon=True).start()
+        threading.Thread(
+            target=self.run_duty,
+            args=("off_duty_commands",),
+            daemon=True
+        ).start()
 
+    # ---------------------- WINDOW CLOSE ----------------------
+
+    def on_close(self):
+        self.destroy()
 
 if __name__ == "__main__":
     app = DutyApp()
