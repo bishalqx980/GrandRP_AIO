@@ -6,7 +6,8 @@ Build Command
 pyinstaller ^
 --onefile ^
 --windowed ^
---icon=app.ico ^
---name AntiAFK ^
+--noconsole ^
+--icon=icon.png ^
+--name AutoClicker ^
 main.py
 ```
