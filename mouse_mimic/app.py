@@ -45,6 +45,7 @@ def on_click(x, y, button, pressed):
         return
 
     if button == TARGET_BUTTON and pressed:
+        pdi.PAUSE = 0
         pdi.press(KEY_TO_PRESS)
 
 # ---------------- TOGGLE LOGIC ----------------
