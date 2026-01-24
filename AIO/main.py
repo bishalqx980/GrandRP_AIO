@@ -1,8 +1,12 @@
 from datetime import datetime
+from threading import Thread
 import customtkinter as ctk
+from logic.antiafk import AFK_MODES
 
 ctk.set_appearance_mode("system")
 ctk.set_default_color_theme("blue")
+afk_modes = AFK_MODES()
+__version__ = "0.3 - (beta)"
 
 
 class App(ctk.CTk):
@@ -46,7 +50,7 @@ class App(ctk.CTk):
         
         self.antiafk_btn = ctk.CTkButton(
             self.button_frame,
-            width=0,
+            width=100,
             text="AntiAFK",
             font=("Segoe UI", 14, "bold")
         )
@@ -54,7 +58,7 @@ class App(ctk.CTk):
 
         self.leo_btn = ctk.CTkButton(
             self.button_frame,
-            width=0,
+            width=100,
             text="Leo",
             font=("Segoe UI", 14, "bold")
         )
@@ -93,12 +97,12 @@ class App(ctk.CTk):
         self.active_color = ("#001755")
 
         # Activity Status
-        self.activity_status = ctk.CTkLabel(
-            self,
-            text="Status: Idle",
-            font=("Segoe UI", 14)
-        )
-        self.activity_status.grid(row=2, column=0, sticky="w", padx=10, pady=(0, 10))
+        # self.activity_status = ctk.CTkLabel(
+        #     self,
+        #     text="Status: Idle",
+        #     font=("Segoe UI", 14)
+        # )
+        # self.activity_status.grid(row=2, column=0, sticky="w", padx=10, pady=(0, 10))
 
         # Main area (Content & Log)
         self.log_frame = ctk.CTkFrame(self)
@@ -114,6 +118,10 @@ class App(ctk.CTk):
         # Log TextArea
         self.log_box = ctk.CTkTextbox(self.log_frame)
         self.log_box.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        
+        self.log_frame.grid_columnconfigure(0, weight=1) # Left side
+        self.log_frame.grid_columnconfigure(1, weight=1) # Right side
+        self.log_frame.grid_rowconfigure(0, weight=1)
 
         self.log_box.configure(state="disabled")
         self.log_box.tag_config(
@@ -124,16 +132,20 @@ class App(ctk.CTk):
             "msg",
             foreground="#b1b1b1"
         )
+        self.log_box.tag_config(
+            "error",
+            foreground="#ff0000"
+        )
         self.log_box.bind("<Key>", lambda e: "break")
         self.log_box.bind("<Button-1>", lambda e: "break")
 
         self.log("App initialized...")
-        # self.switch_section("afk") # Default Section
+        self.switch_section("antiafk") # Default Section
 
         # Credit
         self.footer = ctk.CTkLabel(
             self,
-            text="Developed by @bishalqx980",
+            text=f"Developed by @bishalqx980 | App Version: {__version__}",
             font=("Segoe UI", 12),
             text_color="gray"
         )
@@ -141,12 +153,12 @@ class App(ctk.CTk):
     
 
     # Functions
-    def log(self, message: str):
+    def log(self, message: str, error = False):
         timestamp = datetime.now().strftime("%H:%M:%S")
         self.log_box.configure(state="normal")
 
         self.log_box.insert("end", f"[{timestamp}] ", "time")
-        self.log_box.insert("end", f"- {message}\n", "msg")
+        self.log_box.insert("end", f"- {message}\n", "msg" if not error else "error")
 
         self.log_box.see("end") # auto scroll
         self.log_box.configure(state="disabled")
@@ -190,21 +202,21 @@ class App(ctk.CTk):
         self.normal_antiafk_switch = ctk.CTkSwitch(
             self.content_box,
             text="Enable Normal Anti-AFK",
-            command=self.on_afk_toggle
+            command=self.toggle_normal_antiafk
         )
         self.normal_antiafk_switch.pack(fill="x", padx=10, pady=(0, 10))
 
         self.gym_antiafk_switch = ctk.CTkSwitch(
             self.content_box,
             text="Enable GYM Anti-AFK",
-            command=self.on_afk_toggle
+            command=self.toggle_gym_antiafk
         )
         self.gym_antiafk_switch.pack(fill="x", padx=10, pady=(0, 10))
 
         self.quarry_antiafk_switch = ctk.CTkSwitch(
             self.content_box,
             text="Enable Quarry Anti-AFK",
-            command=self.on_afk_toggle
+            command=self.toggle_quarry_antiafk
         )
         self.quarry_antiafk_switch.pack(fill="x", padx=10, pady=(0, 10))
 
@@ -258,23 +270,95 @@ class App(ctk.CTk):
 
     # def load_misc_ui(self):
     #     self.log("Misc Menu...")
+
+    def afk_status(self):
+        if afk_modes.NORMAL_AFK_RUNNING:
+            self.app_status.configure(text="App Status: Normal AFK Running", text_color="green")
+            self.log("Please turn off Normal AFK to run other AFK modes...", True)
+            return True
+        elif afk_modes.GYM_AFK_RUNNING:
+            self.app_status.configure(text="App Status: Gym AFK Running", text_color="green")
+            self.log("Please turn off Gym AFK to run other AFK modes...", True)
+            return True
+        elif afk_modes.QUARRY_AFK_RUNNING:
+            self.app_status.configure(text="App Status: Quarry AFK Running", text_color="green")
+            self.log("Please turn off Quarry AFK to run other AFK modes...", True)
+            return True
+        else:
+            self.app_status.configure(text="App Status: Idle", text_color="orange")
+            return False
+
+        # if any([
+        #     afk_modes.NORMAL_AFK_RUNNING,
+        #     afk_modes.GYM_AFK_RUNNING,
+        #     afk_modes.QUARRY_AFK_RUNNING
+        # ]):
+        #     self.log("Please turn of other anti-afk modes...", True)
+        #     self.app_status.configure(text="")
+        #     return True
+        # else:
+        #     return False
     
 
+    # Functions
+    def toggle_normal_antiafk(self):
+        if self.normal_antiafk_switch.get():
+            if self.afk_status():
+                return
+            
+            self.log("Stopping all active AFK modes..!")
+
+            afk_modes.stop_all()
+            afk_modes.NORMAL_AFK_RUNNING = True
+
+            self.log("Starting normal Anti-afk in 3sec..!")
+            thread = Thread(target=afk_modes.start_normal_afk, daemon=True)
+            thread.start()
+            self.app_status.configure(text="App Status: Normal AFK Running", text_color="green")
+        elif afk_modes.NORMAL_AFK_RUNNING:
+            self.log("Stopping normal Anti-afk..!")
+            afk_modes.stop_all()
+            self.app_status.configure(text="App Status: Idle", text_color="orange")
 
 
-    # other file logics 
+    def toggle_gym_antiafk(self):
+        if self.gym_antiafk_switch.get():
+            if self.afk_status():
+                return
+            
+            self.log("Stopping all active AFK modes..!")
 
-    def on_afk_toggle(self):
-        if self.normal_antiafk_switch.get(): # ON
-            self.log("Anti-AFK enabled")
-            self.activity_status.configure(text="Status: Anti-AFK running")
-        else: # OFF
-            self.log("Anti-AFK disabled")
-            self.activity_status.configure(text="Status: Idle")
+            afk_modes.stop_all()
+            afk_modes.GYM_AFK_RUNNING = True
 
+            self.log("Starting GYM Anti-afk in 3sec..!")
+            thread = Thread(target=afk_modes.start_gym_afk, daemon=True)
+            thread.start()
+            self.app_status.configure(text="App Status: Gym AFK Running", text_color="green")
+        elif afk_modes.GYM_AFK_RUNNING:
+            self.log("Stopping GYM Anti-afk..!")
+            afk_modes.stop_all()
+            self.app_status.configure(text="App Status: Idle", text_color="orange")
+    
 
+    def toggle_quarry_antiafk(self):
+        if self.quarry_antiafk_switch.get():
+            if self.afk_status():
+                return
+            
+            self.log("Stopping all active AFK modes..!")
 
-        
+            afk_modes.stop_all()
+            afk_modes.QUARRY_AFK_RUNNING = True
+
+            self.log("Starting Quarry Anti-afk in 3sec..!")
+            thread = Thread(target=afk_modes.start_quarry_afk, daemon=True)
+            thread.start()
+            self.app_status.configure(text="App Status: Quarry AFK Running", text_color="green")
+        elif afk_modes.QUARRY_AFK_RUNNING:
+            self.log("Stopping Quarry Anti-afk..!")
+            afk_modes.stop_all()
+            self.app_status.configure(text="App Status: Idle", text_color="orange")
 
 
 if __name__ == "__main__":
