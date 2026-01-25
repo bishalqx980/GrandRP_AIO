@@ -4,9 +4,6 @@ from time import sleep
 import pydirectinput as pdi
 
 
-CURRENT_GMT_TIME = datetime.now(timezone.utc).strftime("%H:%M")
-
-
 def take_screenshot(keycombo_list):
     holding_key = keycombo_list[0]
     press_key = keycombo_list[1]
@@ -21,7 +18,7 @@ def do_leo_automation(config, duty):
     :param config: config.json loaded file
     :param duty: int 1 for onduty 0 for offduty
     """
-
+    current_gmt_time = datetime.now(timezone.utc).strftime("%H:%M")
     badge_number = config["badge_number"]
     screenshot_combo = config["screenshot_combo"]
     commands = []
@@ -41,7 +38,7 @@ def do_leo_automation(config, duty):
         # Copy the command with formatting
         pyperclip.copy(cmd.format(
             badge = badge_number,
-            time = CURRENT_GMT_TIME
+            time = current_gmt_time
         ))
 
         # main execution
