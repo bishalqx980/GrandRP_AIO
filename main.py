@@ -1,12 +1,63 @@
+import os
+import sys
+import json
 from datetime import datetime
 from threading import Thread
 import customtkinter as ctk
 from logic.antiafk import AFK_MODES
+from logic.leo import do_leo_automation
 
 ctk.set_appearance_mode("system")
 ctk.set_default_color_theme("blue")
 afk_modes = AFK_MODES()
 __version__ = "0.3 - (beta)"
+
+
+def get_app_dir():
+    # If running as EXE
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+
+    # If running as .py
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+SETTINGS_FILE = os.path.join(get_app_dir(), "config.json")
+
+
+def load_config():
+    # Create file if not exists
+    if not os.path.exists(SETTINGS_FILE):
+        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump({
+                "badge_number": 109,
+                "screenshot_combo": [
+                    "alt",
+                    "`"
+                ],
+                "onduty_commands": [
+                    "/me takes out bodycam, turns it on, and checks for the red light",
+                    "/do The bodycam is recording, and is ballistic and waterproof",
+                    "{badge} to Dispatch Show 10-41 at {time}"
+                ],
+                "offduty_commands": [
+                    "/do saves the bodycam content and uploads the bodycam to SAHP servers and stops recording",
+                    "{badge} to Dispatch Show 10-42 at {time}"
+                ]
+            }, f, indent=4)
+
+    # Read
+    with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_config(data):
+    # Write
+    with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4)
+
+# Main config.json file
+CONFIG = load_config()
 
 
 class App(ctk.CTk):
@@ -238,10 +289,15 @@ class App(ctk.CTk):
             anchor="w"
         ).pack(side="left")
 
+        self.badge_var = ctk.StringVar()
+        self.badge_var.set(CONFIG.get("badge_number", ""))
+        self.badge_var.trace_add("write", self.on_badge_change)
+
         self.badge_entry = ctk.CTkEntry(
             badge_row,
             placeholder_text="e.g. 109",
-            width=160
+            width=160,
+            textvariable=self.badge_var
         )
         self.badge_entry.pack(side="left", padx=(0, 10))
 
@@ -254,14 +310,14 @@ class App(ctk.CTk):
             btn_row,
             text="On Duty",
             font=("Segoe UI", 14, "bold"),
-            command=lambda: self.log("On duty")
+            command=self.leo_onduty
         ).grid(row=0, column=0, sticky="ew", padx=(0, 5))
 
         ctk.CTkButton(
             btn_row,
             text="Off Duty",
             font=("Segoe UI", 14, "bold"),
-            command=lambda: self.log("Off duty")
+            command=self.leo_offduty
         ).grid(row=0, column=1, sticky="ew", padx=(5, 0))
 
     # def load_autoclicker_ui(self):
@@ -287,20 +343,9 @@ class App(ctk.CTk):
         else:
             self.app_status.configure(text="App Status: Idle", text_color="orange")
             return False
-
-        # if any([
-        #     afk_modes.NORMAL_AFK_RUNNING,
-        #     afk_modes.GYM_AFK_RUNNING,
-        #     afk_modes.QUARRY_AFK_RUNNING
-        # ]):
-        #     self.log("Please turn of other anti-afk modes...", True)
-        #     self.app_status.configure(text="")
-        #     return True
-        # else:
-        #     return False
     
 
-    # Functions
+    # Anti-afk functions
     def toggle_normal_antiafk(self):
         if self.normal_antiafk_switch.get():
             if self.afk_status():
@@ -359,6 +404,36 @@ class App(ctk.CTk):
             self.log("Stopping Quarry Anti-afk..!")
             afk_modes.stop_all()
             self.app_status.configure(text="App Status: Idle", text_color="orange")
+    
+
+    # Leo functions
+    def on_badge_change(self, *args):
+        new_badge = self.badge_var.get()
+        CONFIG["badge_number"] = new_badge
+        save_config(CONFIG)
+        self.log(f"Badge number updated to '{new_badge}' !!")
+
+
+    def leo_onduty(self):
+        badge_number = CONFIG["badge_number"]
+        if not badge_number:
+            self.log("Badge Number wasn't provided!", True)
+            return
+        
+        self.log("Starting LEO on-duty command automation in 3sec..!")
+        thread = Thread(target=do_leo_automation, args=(CONFIG, 1), daemon=True)
+        thread.start()
+    
+    
+    def leo_offduty(self):
+        badge_number = CONFIG["badge_number"]
+        if not badge_number:
+            self.log("Badge Number wasn't provided!", True)
+            return
+        
+        self.log("Starting LEO off-duty command automation in 3sec..!")
+        thread = Thread(target=do_leo_automation, args=(CONFIG, 0), daemon=True)
+        thread.start()
 
 
 if __name__ == "__main__":
