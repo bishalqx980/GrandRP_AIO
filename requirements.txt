@@ -1,3 +1,2 @@
-pydirectinput
-psutil
 customtkinter
+pydirectinput

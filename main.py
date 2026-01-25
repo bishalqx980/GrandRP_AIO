@@ -1,186 +1,366 @@
-import customtkinter as ctk
 from datetime import datetime
-from time import sleep
-from random import choice
-import pydirectinput as pdi
-import psutil
-import threading
+from threading import Thread
+import customtkinter as ctk
+from logic.antiafk import AFK_MODES
 
-# ---------------------- CONFIG ----------------------
-TARGET_PROCESS = "ragemp_game_ui"
-
-def is_process_running(process_name: str) -> bool:
-    for proc in psutil.process_iter(['name']):
-        try:
-            if proc.info['name'] and process_name.lower() in proc.info['name'].lower():
-                return True
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            pass
-    return False
-
-# ---------------------- UI APP ----------------------
-ctk.set_appearance_mode("System")
+ctk.set_appearance_mode("system")
 ctk.set_default_color_theme("blue")
+afk_modes = AFK_MODES()
+__version__ = "0.3 - (beta)"
+
 
 class App(ctk.CTk):
-    def __init__(self):
-        super().__init__()
-        self.title("AntiAFK - RageMP by @bishalqx980")
-        self.geometry("500x400")
-        self.minsize(500, 400)
+    def __init__(self, fg_color = None, **kwargs):
+        super().__init__(fg_color, **kwargs)
 
-        # ---------------- PROCESS STATUS (TOP LEFT) ----------------
-        self.process_label = ctk.CTkLabel(
-            self,
-            text="Game not detected!",
-            font=ctk.CTkFont(size=12)
+        self.title("GrandRP - AIO")
+        self.geometry("700x500")
+        self.resizable(False, False)
+
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(3, weight=1)
+
+        # Top status bar
+        self.top_frame = ctk.CTkFrame(self)
+        self.top_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
+        self.top_frame.grid_columnconfigure(1, weight=1)
+
+        # App status
+        self.app_status = ctk.CTkLabel(
+            self.top_frame,
+            text="App Status: Idle",
+            text_color="orange"
         )
-        self.process_label.place(x=20, y=10, anchor="nw")
-        self.update_process_label()
+        self.app_status.grid(row=0, column=0, padx=10)
 
-        # ---------------- MAIN FRAME ----------------
-        self.frame = ctk.CTkFrame(self, corner_radius=10, fg_color="transparent")
-        self.frame.pack(fill="both", expand=True, padx=20, pady=(40, 20))
-
-        # ---------------- TOGGLES ----------------
-        self.toggle_frame = ctk.CTkFrame(self.frame, corner_radius=10)
-        self.toggle_frame.pack(fill="x", pady=(0, 10))
-
-        self.normal_var = ctk.BooleanVar()
-        self.normal_toggle = ctk.CTkSwitch(
-            self.toggle_frame,
-            text="Normal AFK",
-            variable=self.normal_var,
-            command=self.toggle_changed
+        # title
+        self.title_label = ctk.CTkLabel(
+            self.top_frame,
+            text="GrandRP - AIO",
+            font=("Segoe UI", 18, "bold")
         )
-        self.normal_toggle.pack(side="left", padx=10, pady=10)
+        self.title_label.grid(row=0, column=1, sticky="e", padx=10)
 
-        self.gym_var = ctk.BooleanVar()
-        self.gym_toggle = ctk.CTkSwitch(
-            self.toggle_frame,
-            text="GYM AFK",
-            variable=self.gym_var,
-            command=self.toggle_changed
+        # Buttons
+        self.button_frame = ctk.CTkFrame(self)
+        self.button_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 10))
+
+        for i in range(4):
+            self.button_frame.grid_columnconfigure(i, weight=1)
+        
+        self.antiafk_btn = ctk.CTkButton(
+            self.button_frame,
+            width=100,
+            text="AntiAFK",
+            font=("Segoe UI", 14, "bold")
         )
-        self.gym_toggle.pack(side="left", padx=10, pady=10)
+        self.antiafk_btn.grid(row=0, column=0, sticky="ew", padx=5, pady=10)
 
-        # ---------------- LOG AREA ----------------
-        self.log_area = ctk.CTkTextbox(self.frame, height=200, corner_radius=10)
-        self.log_area.pack(fill="both", expand=True, pady=(0, 10))
-        self.log_area.configure(state="disabled")
+        self.leo_btn = ctk.CTkButton(
+            self.button_frame,
+            width=100,
+            text="Leo",
+            font=("Segoe UI", 14, "bold")
+        )
+        self.leo_btn.grid(row=0, column=1, sticky="ew", padx=5, pady=10)
 
-        # ---------------- FOOTER ----------------
+        # self.autoclicker_btn = ctk.CTkButton(
+        #     self.button_frame,
+        #     text="Autoclicker",
+        #     font=("Segoe UI", 14, "bold")
+        # )
+        # self.autoclicker_btn.grid(row=0, column=2, sticky="ew", padx=5, pady=10)
+
+        # self.misc_btn = ctk.CTkButton(
+        #     self.button_frame,
+        #     text="Misc",
+        #     font=("Segoe UI", 14, "bold")
+        # )
+        # self.misc_btn.grid(row=0, column=3, sticky="ew", padx=5, pady=10)
+
+        self.antiafk_btn.configure(command=lambda: self.switch_section("antiafk"))
+        self.leo_btn.configure(command=lambda: self.switch_section("leo"))
+        # self.autoclicker_btn.configure(command=lambda: self.switch_section("autoclicker"))
+        # self.misc_btn.configure(command=lambda: self.switch_section("misc"))
+
+        # Tab navigation
+        self.nav_buttons = {
+            "antiafk": self.antiafk_btn,
+            "leo": self.leo_btn,
+            # "autoclicker": self.autoclicker_btn,
+            # "misc": self.misc_btn,
+        }
+
+        self.active_section = None
+
+        self.normal_color = self.antiafk_btn.cget("fg_color")
+        self.active_color = ("#001755")
+
+        # Activity Status
+        # self.activity_status = ctk.CTkLabel(
+        #     self,
+        #     text="Status: Idle",
+        #     font=("Segoe UI", 14)
+        # )
+        # self.activity_status.grid(row=2, column=0, sticky="w", padx=10, pady=(0, 10))
+
+        # Main area (Content & Log)
+        self.log_frame = ctk.CTkFrame(self)
+        self.log_frame.grid(row=3, column=0, sticky="nsew", padx=10, pady=10)
+
+        self.log_frame.grid_rowconfigure(0, weight=1)
+        self.log_frame.grid_columnconfigure(0, weight=1)
+
+        # Content Area
+        self.content_box = ctk.CTkFrame(self.log_frame)
+        self.content_box.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+
+        # Log TextArea
+        self.log_box = ctk.CTkTextbox(self.log_frame)
+        self.log_box.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        
+        self.log_frame.grid_columnconfigure(0, weight=1) # Left side
+        self.log_frame.grid_columnconfigure(1, weight=1) # Right side
+        self.log_frame.grid_rowconfigure(0, weight=1)
+
+        self.log_box.configure(state="disabled")
+        self.log_box.tag_config(
+            "time",
+            foreground="#ffcc81"
+        )
+        self.log_box.tag_config(
+            "msg",
+            foreground="#b1b1b1"
+        )
+        self.log_box.tag_config(
+            "error",
+            foreground="#ff0000"
+        )
+        self.log_box.bind("<Key>", lambda e: "break")
+        self.log_box.bind("<Button-1>", lambda e: "break")
+
+        self.log("App initialized...")
+        self.switch_section("antiafk") # Default Section
+
+        # Credit
         self.footer = ctk.CTkLabel(
-            self.frame,
-            text="Developed by @bishalqx980",
-            font=ctk.CTkFont(size=12),
-            text_color=("gray40", "gray60")
+            self,
+            text=f"Developed by @bishalqx980 | App Version: {__version__}",
+            font=("Segoe UI", 12),
+            text_color="gray"
         )
-        self.footer.pack(pady=(0, 0))
+        self.footer.grid(row=4, column=0, pady=(0, 10))
+    
 
-        self.log("App started!")
-        self.running = False
-
-    # ---------------- PROCESS CHECK ----------------
-    def update_process_label(self):
-        process_name = is_process_running(TARGET_PROCESS)
-
-        if process_name:
-            self.process_label.configure(
-                text=f"Game Running: {process_name}",
-                text_color="#22c55e"
-            )
-        else:
-            self.process_label.configure(
-                text=f"Game Running: {process_name}",
-                text_color="#ef4444"
-            )
-
-        self.after(3000, self.update_process_label)
-
-    # ---------------- TOGGLE ----------------
-    def toggle_changed(self):
-        if self.normal_var.get() and self.gym_var.get():
-            self.gym_var.set(False)
-
-        status_normal = "ON" if self.normal_var.get() else "OFF"
-        status_gym = "ON" if self.gym_var.get() else "OFF"
-        self.log(f"Normal AFK: {status_normal} | GYM AFK: {status_gym}")
-
-        if self.normal_var.get():
-            self.start_script("normal")
-        elif self.gym_var.get():
-            self.start_script("gym")
-        else:
-            self.stop_script()
-
-    # ---------------- LOG ----------------
-    def log(self, message):
+    # Functions
+    def log(self, message: str, error = False):
         timestamp = datetime.now().strftime("%H:%M:%S")
-        self.log_area.configure(state="normal")
-        self.log_area.insert("end", f"[{timestamp}] {message}\n")
-        self.log_area.see("end")
-        self.log_area.configure(state="disabled")
+        self.log_box.configure(state="normal")
 
-    # ---------------- SCRIPT CONTROL ----------------
-    def start_script(self, script_type):
-        if self.running:
-            self.log("Script already running...")
-            return
+        self.log_box.insert("end", f"[{timestamp}] ", "time")
+        self.log_box.insert("end", f"- {message}\n", "msg" if not error else "error")
 
-        self.running = True
-        thread = threading.Thread(target=self.afk_loop, args=(script_type,), daemon=True)
-        thread.start()
+        self.log_box.see("end") # auto scroll
+        self.log_box.configure(state="disabled")
+    
 
-    def stop_script(self):
-        self.running = False
-        self.log("Script stopped.")
+    def switch_section(self, section: str):
+        if self.active_section == section:
+            return # already active, do nothing
 
-    # ---------------- AFK LOOP ----------------
-    def afk_loop(self, script_type):
-        if script_type == "normal":
-            WAIT_TIME = 9 * 60
-            HOLD_TIME = 1
-            STARTING_TIME = 3
-            KEYS = ["w", "a", "s", "d"]
+        self.active_section = section
 
-            self.log(f"Normal AFK starting in {STARTING_TIME} seconds...")
-            sleep(STARTING_TIME)
+        # update top button visuals
+        for name, btn in self.nav_buttons.items():
+            if name == section:
+                btn.configure(fg_color=self.active_color)
+            else:
+                btn.configure(fg_color=self.normal_color)
 
-            while self.running:
-                if not is_process_running(TARGET_PROCESS):
-                    sleep(1)
-                    continue
+        # clear content area
+        for widget in self.content_box.winfo_children():
+            widget.destroy()
 
-                key = choice(KEYS)
-                self.log(f"Holding {key.upper()} for {HOLD_TIME} seconds.")
-                pdi.keyDown(key)
-                sleep(HOLD_TIME)
-                pdi.keyUp(key)
-                sleep(0.25)
-                self.log(f"Ping given. Waiting {(WAIT_TIME / 60):.2f} minutes...\n")
-                sleep(WAIT_TIME)
+        # load section UI
+        if section == "antiafk":
+            self.load_antiafk_ui()
+        elif section == "leo":
+            self.load_leo_ui()
+        elif section == "autoclicker":
+            self.load_autoclicker_ui()
+        elif section == "misc":
+            self.load_misc_ui()
+    
 
-        elif script_type == "gym":
-            WAIT_TIME = choice([1, 2])
-            STARTING_TIME = 3
-            KEY = "e"
+    def load_antiafk_ui(self):
+        ctk.CTkLabel(
+            self.content_box,
+            text="AntiAFK Menu",
+            font=("Segoe UI", 16, "bold")
+        ).pack(anchor="w", padx=10, pady=(0, 10))
 
-            self.log(f"GYM AFK starting in {STARTING_TIME} seconds...")
-            sleep(STARTING_TIME)
-            self.log("Running...")
+        self.normal_antiafk_switch = ctk.CTkSwitch(
+            self.content_box,
+            text="Enable Normal Anti-AFK",
+            command=self.toggle_normal_antiafk
+        )
+        self.normal_antiafk_switch.pack(fill="x", padx=10, pady=(0, 10))
 
-            while self.running:
-                if not is_process_running(TARGET_PROCESS):
-                    sleep(1)
-                    continue
+        self.gym_antiafk_switch = ctk.CTkSwitch(
+            self.content_box,
+            text="Enable GYM Anti-AFK",
+            command=self.toggle_gym_antiafk
+        )
+        self.gym_antiafk_switch.pack(fill="x", padx=10, pady=(0, 10))
 
-                pdi.press(KEY)
-                self.log(f"Pressed {KEY.upper()}. Waiting {WAIT_TIME} seconds...")
-                sleep(WAIT_TIME)
+        self.quarry_antiafk_switch = ctk.CTkSwitch(
+            self.content_box,
+            text="Enable Quarry Anti-AFK",
+            command=self.toggle_quarry_antiafk
+        )
+        self.quarry_antiafk_switch.pack(fill="x", padx=10, pady=(0, 10))
 
 
-# ---------------------- RUN APP ----------------------
+    def load_leo_ui(self):
+        ctk.CTkLabel(
+            self.content_box,
+            text="LEO Menu (LSPD / SAHP / FIB)",
+            font=("Segoe UI", 16, "bold")
+        ).pack(anchor="w", padx=10, pady=(0, 10))
+
+        badge_row = ctk.CTkFrame(self.content_box, fg_color="transparent")
+        badge_row.pack(fill="x", padx=10, pady=(0, 10))
+
+        ctk.CTkLabel(
+            badge_row,
+            text="Badge Number",
+            width=120,
+            anchor="w"
+        ).pack(side="left")
+
+        self.badge_entry = ctk.CTkEntry(
+            badge_row,
+            placeholder_text="e.g. 109",
+            width=160
+        )
+        self.badge_entry.pack(side="left", padx=(0, 10))
+
+        btn_row = ctk.CTkFrame(self.content_box, fg_color="transparent")
+        btn_row.pack(fill="x", padx=10, pady=(0, 10))
+
+        btn_row.grid_columnconfigure((0, 1), weight=1)
+
+        ctk.CTkButton(
+            btn_row,
+            text="On Duty",
+            font=("Segoe UI", 14, "bold"),
+            command=lambda: self.log("On duty")
+        ).grid(row=0, column=0, sticky="ew", padx=(0, 5))
+
+        ctk.CTkButton(
+            btn_row,
+            text="Off Duty",
+            font=("Segoe UI", 14, "bold"),
+            command=lambda: self.log("Off duty")
+        ).grid(row=0, column=1, sticky="ew", padx=(5, 0))
+
+    # def load_autoclicker_ui(self):
+    #     self.log("Autoclicker Menu...")
+    
+
+    # def load_misc_ui(self):
+    #     self.log("Misc Menu...")
+
+    def afk_status(self):
+        if afk_modes.NORMAL_AFK_RUNNING:
+            self.app_status.configure(text="App Status: Normal AFK Running", text_color="green")
+            self.log("Please turn off Normal AFK to run other AFK modes...", True)
+            return True
+        elif afk_modes.GYM_AFK_RUNNING:
+            self.app_status.configure(text="App Status: Gym AFK Running", text_color="green")
+            self.log("Please turn off Gym AFK to run other AFK modes...", True)
+            return True
+        elif afk_modes.QUARRY_AFK_RUNNING:
+            self.app_status.configure(text="App Status: Quarry AFK Running", text_color="green")
+            self.log("Please turn off Quarry AFK to run other AFK modes...", True)
+            return True
+        else:
+            self.app_status.configure(text="App Status: Idle", text_color="orange")
+            return False
+
+        # if any([
+        #     afk_modes.NORMAL_AFK_RUNNING,
+        #     afk_modes.GYM_AFK_RUNNING,
+        #     afk_modes.QUARRY_AFK_RUNNING
+        # ]):
+        #     self.log("Please turn of other anti-afk modes...", True)
+        #     self.app_status.configure(text="")
+        #     return True
+        # else:
+        #     return False
+    
+
+    # Functions
+    def toggle_normal_antiafk(self):
+        if self.normal_antiafk_switch.get():
+            if self.afk_status():
+                return
+            
+            self.log("Stopping all active AFK modes..!")
+
+            afk_modes.stop_all()
+            afk_modes.NORMAL_AFK_RUNNING = True
+
+            self.log("Starting normal Anti-afk in 3sec..!")
+            thread = Thread(target=afk_modes.start_normal_afk, daemon=True)
+            thread.start()
+            self.app_status.configure(text="App Status: Normal AFK Running", text_color="green")
+        elif afk_modes.NORMAL_AFK_RUNNING:
+            self.log("Stopping normal Anti-afk..!")
+            afk_modes.stop_all()
+            self.app_status.configure(text="App Status: Idle", text_color="orange")
+
+
+    def toggle_gym_antiafk(self):
+        if self.gym_antiafk_switch.get():
+            if self.afk_status():
+                return
+            
+            self.log("Stopping all active AFK modes..!")
+
+            afk_modes.stop_all()
+            afk_modes.GYM_AFK_RUNNING = True
+
+            self.log("Starting GYM Anti-afk in 3sec..!")
+            thread = Thread(target=afk_modes.start_gym_afk, daemon=True)
+            thread.start()
+            self.app_status.configure(text="App Status: Gym AFK Running", text_color="green")
+        elif afk_modes.GYM_AFK_RUNNING:
+            self.log("Stopping GYM Anti-afk..!")
+            afk_modes.stop_all()
+            self.app_status.configure(text="App Status: Idle", text_color="orange")
+    
+
+    def toggle_quarry_antiafk(self):
+        if self.quarry_antiafk_switch.get():
+            if self.afk_status():
+                return
+            
+            self.log("Stopping all active AFK modes..!")
+
+            afk_modes.stop_all()
+            afk_modes.QUARRY_AFK_RUNNING = True
+
+            self.log("Starting Quarry Anti-afk in 3sec..!")
+            thread = Thread(target=afk_modes.start_quarry_afk, daemon=True)
+            thread.start()
+            self.app_status.configure(text="App Status: Quarry AFK Running", text_color="green")
+        elif afk_modes.QUARRY_AFK_RUNNING:
+            self.log("Stopping Quarry Anti-afk..!")
+            afk_modes.stop_all()
+            self.app_status.configure(text="App Status: Idle", text_color="orange")
+
+
 if __name__ == "__main__":
     app = App()
     app.mainloop()

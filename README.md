@@ -1,13 +1,15 @@
-# grandrp-antiafk
+# GrandRP-AIO
 
 Build Command
 
 ```
 pyinstaller ^
+--clean ^
 --onefile ^
---windowed ^
 --noconsole ^
+--uac-admin ^
+--splash splash.jpg ^
 --icon=icon.png ^
---name AutoClicker ^
+--name GrandRP_AIO ^
 main.py
 ```
