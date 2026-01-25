@@ -12,5 +12,6 @@
     "offduty_commands": [
         "/do saves the bodycam content and uploads the bodycam to SAHP servers and stops recording",
         "{badge} to Dispatch Show 10-42 at {time}"
-    ]
+    ],
+    "discord": true
 }

@@ -1,3 +1,5 @@
 customtkinter
 pydirectinput
 pyperclip
+requests
+psutil 
