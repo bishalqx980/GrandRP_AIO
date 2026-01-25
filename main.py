@@ -13,6 +13,12 @@ afk_modes = AFK_MODES()
 __version__ = "0.3 - (beta)"
 
 
+def resource_path(relative):
+    if getattr(sys, 'frozen', False):
+        return os.path.join(sys._MEIPASS, relative)
+    return os.path.abspath(relative)
+
+
 def get_app_dir():
     # If running as EXE
     if getattr(sys, 'frozen', False):
@@ -67,6 +73,7 @@ class App(ctk.CTk):
         self.title("GrandRP - AIO")
         self.geometry("700x500")
         self.resizable(False, False)
+        self.iconbitmap(resource_path("icon.ico"))
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(3, weight=1)
