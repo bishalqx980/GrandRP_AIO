@@ -1,16 +1,8 @@
-# GrandRP-AIO
+# GrandRP - AIO
 
-Build Command
+- Anti Afk system
+- Leo onduty / offduty helper
 
-```
-pyinstaller ^
---clean ^
---onefile ^
---noconsole ^
---uac-admin ^
---splash splash.jpg ^
---icon=icon.png ^
---add-data "icon.ico;." ^
---name GrandRP_AIO ^
-main.py
-```
+<p align="center">
+  Made with ❤️ by <a href="https://github.com/bishalqx980">bishalqx980</a>
+</p>
