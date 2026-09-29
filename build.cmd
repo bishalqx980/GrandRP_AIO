@@ -31,6 +31,7 @@ pyinstaller ^
 --onefile ^
 --noconsole ^
 --uac-admin ^
+--add-data "icon.ico;." ^
 --icon=%ICON_PATH% ^
 --name=%APP_NAME% ^
 app\__main__.py
